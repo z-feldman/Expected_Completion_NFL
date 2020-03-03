@@ -21,8 +21,9 @@ positions %<>% mutate(
   name = ifelse(name == "D.Chark Jr.", "D.Chark", name))
 
 positions %<>% 
-  filter(season >= 2009, side == "O") %>% fix_team_abbreviations(old_to_new = T) %>% 
-  mutate(team = if_else(team == "LV", "OAK", team), position = if_else(position == "HB", "RB", position))
+  filter(season >= 2009) %>% fix_team_abbreviations(old_to_new = T) %>% 
+  mutate(team = if_else(team == "LV", "OAK", team), position = if_else(position == "HB", "RB", position)) %>%
+  filter(position %in% c("QB", "RB", "WR", "FB", "TE"))
 
 plays <- plays %>% mutate(season = as.numeric(substr(game_id, 1, 4)))
 
@@ -65,7 +66,7 @@ train <- plays %>% sample_frac(0.70)
 test <- anti_join(plays, train, by = 'id')
 
 # Model 1 -----------------------------------------------------------------
-model1 <- train %>%
+model1 <- plays %>%
   bam(
     data = .,
     formula = complete_pass ~ factor(season) + s(air_yards) + s(ydstogo) + s(yardline_100) + s(wp) + ti(air_yards, ydstogo, by = factor(receiver_position)) +
@@ -107,7 +108,7 @@ write_csv(test, "test.csv")
 
 #  ** Train 2 
 
-model2 <- train %>%
+model2 <- plays %>%
   bam(
     data = .,
     formula = complete_pass ~ factor(season) + s(air_yards) + s(ydstogo) + s(yardline_100) + s(wp) + ti(air_yards, ydstogo, by = factor(receiver_position)) +
@@ -159,7 +160,7 @@ plot_pred2 %>% summarise(worst_rmse = mean(worst_sq_error) %>% sqrt() %>% round(
 
 # Model 3 -----------------------------------------------------------------
 #  ** Train 3 
-model3 <- train %>%
+model3 <- plays %>%
   bam(
     data = .,
     formula = complete_pass ~ factor(season) + s(air_yards, k = 12) + s(ydstogo) + s(yardline_100) + s(wp) + ti(air_yards, ydstogo, by = factor(receiver_position)) +
@@ -211,7 +212,7 @@ plot_pred3 %>% summarise(worst_rmse = mean(worst_sq_error) %>% sqrt() %>% round(
 
 # Model 4 -----------------------------------------------------------------
 #  ** Train 4
-model4 <- train %>%
+model4 <- plays %>%
   bam(
     data = .,
     formula = complete_pass ~ factor(season) + s(air_yards, k = 12) + s(ydstogo, k = 12) + s(yardline_100, k = 12) + s(wp) + ti(air_yards, ydstogo, by = factor(receiver_position)) +
@@ -264,7 +265,7 @@ plot_pred4 %>% summarise(worst_rmse = mean(worst_sq_error) %>% sqrt() %>% round(
 
 # Ben's Model -------------------------------------------------------------
 
-ben_ec <- train %>%
+ben_ec <- plays %>%
   bam(data = ., formula = complete_pass ~ factor(season) + s(air_yards) + factor(air_is_zero) + factor(pass_location), method = "REML")
 
 
@@ -288,14 +289,15 @@ plot_ben %>% summarise(worst_rmse = mean(worst_sq_error) %>% sqrt() %>% round(3)
                        rmse = mean(sq_error) %>% sqrt() %>% round(3),
                        best_rmse = mean(best_sq_error) %>% sqrt() %>% round(3))
 
-
-
+# Josh Model --------------------------------
+josh_ec <- plays %>%
+  bam(data = ., formula = complete_pass ~ s(air_yards) + down + pass_location + s(log(ydstogo)) + season + air_is_zero, method = "REML")
 
 
 # Just Air Yards ----------------------------------------------------------
 
 
-air_ec <- train %>%
+air_ec <- plays %>%
   bam(data = ., formula = complete_pass ~ factor(season) + s(air_yards), family = binomial())
 
 
