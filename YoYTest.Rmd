@@ -20,6 +20,17 @@ plays_qb_test$air_pred <- plogis(pred_air$fit)
 plays_qb_test$model4_pred <- plogis(pred4$fit)
 plays_qb_test$xgb_pred <- xgb_mod_full_pred
 
+=======
+plays_qb_test$air_zero_pred <- plogis(pred_air_zero$fit)
+plays_qb_test$air_gauss_pred <- pred_air_gauss$fit
+plays_qb_test$model4_pred <- plogis(pred4$fit)
+plays_qb_test$model4_log_pred <- plogis(pred4_log$fit)
+plays_qb_test$model4_gauss_pred <- pred4_gauss$fit
+plays_qb_test$model6_pred <- plogis(pred6$fit)
+plays_qb_test$model6_gauss_pred <- pred6_gauss$fit
+plays_qb_test$ben_pred <- plogis(pred_ben$fit)
+plays_qb_test$ben_gauss_pred <- pred_ben_gauss$fit
+>>>>>>> 1bb485acf3e054eb078d63cce526b2c8186bbe6d
 ```
 
 Add cpoe columns
@@ -27,6 +38,7 @@ Add cpoe columns
 plays_qb_test %<>% mutate(cpoe_air = complete_pass - air_pred,
                           cpoe_model4 = complete_pass - model4_pred,
                           cpoe_xgb = complete_pass - xgb_pred)
+
 ```
 
 Group by season and qb

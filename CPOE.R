@@ -298,7 +298,11 @@ glance(model4)
 
 #  ** Predict 4
 
+
 model4 <- readRDS("model4")
+
+
+
 pred4 <- predict.bam(model4, newdata = cpoe_passes, se.fit = T, type = "link")
 pred4_log <- predict.bam(model4_log, newdata = cpoe_passes, se.fit = T, type = "link")
 pred4_gauss <- predict.bam(model4_gaussian, newdata = cpoe_passes, se.fit = T)
@@ -436,6 +440,9 @@ ben_ec_gaussian <- cpoe_passes %>%
         factor(down) + factor(pass_location))
 
 
+saveRDS(ben_ec, "ben_ec")
+saveRDS(ben_ec_gaussian, "ben_ec_gaussian")
+
 
 saveRDS(ben_ec, "ben_ec")
 saveRDS(ben_ec_gaussian, "ben_ec_gaussian")
@@ -469,11 +476,21 @@ josh_ec <- plays %>%
 summary_josh <- summary(josh_ec)
 summary_josh
 
+
 gratia::draw(josh_ec)
 
 mgcv::k.check(josh_ec)
 
 pred_josh <- predict.bam(josh_ec, newdata = plays, se.fit = TRUE)
+
+
+
+gratia::draw(josh_ec)
+
+mgcv::k.check(josh_ec)
+
+pred_josh <- predict.bam(josh_ec, newdata = plays, se.fit = TRUE)
+
 
 plot_josh <- data.frame("complete_pass" = plays$complete_pass, "prediction" = pred_josh$fit, "se" = pred_josh$se.fit)
 plot_josh %<>% mutate(prob = prediction,
@@ -497,8 +514,15 @@ air_ec <- cpoe_passes %>%
 air_ec_air_zero <- cpoe_passes %>%
   bam(data = .,formula = complete_pass ~ s(air_yards) + factor(air_is_zero), family = binomial())
 
+
 air_ec_gaussian <- cpoe_passes %>%
   bam(data =., formula = complete_pass ~ s(air_yards))
+
+
+
+air_ec_gaussian <- cpoe_passes %>%
+  bam(data =., formula = complete_pass ~ s(air_yards))
+
 
 saveRDS(air_ec, "air_ec")
 saveRDS(air_ec_air_zero, "air_ec_air_zero")
@@ -516,6 +540,12 @@ summary_air
 
 #  * Air Yards Predictions 
 air_ec <- readRDS("air_ec")
+pred_air <- predict.bam(air_ec, newdata = cpoe_passes, se.fit = TRUE, type = "link")
+pred_air_zero <- predict.bam(air_ec_air_zero, newdata = cpoe_passes, se.fit = TRUE, type = "link")
+pred_air_gauss <- predict.bam(air_ec_gaussian, newdata = cpoe_passes, se.fit = TRUE)
+
+
+
 pred_air <- predict.bam(air_ec, newdata = cpoe_passes, se.fit = TRUE, type = "link")
 pred_air_zero <- predict.bam(air_ec_air_zero, newdata = cpoe_passes, se.fit = TRUE, type = "link")
 pred_air_gauss <- predict.bam(air_ec_gaussian, newdata = cpoe_passes, se.fit = TRUE)
