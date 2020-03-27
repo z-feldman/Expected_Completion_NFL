@@ -17,29 +17,16 @@ plays_qb_test <- cpoe_passes %>% select(season, passer_player_name, complete_pas
 Add prediction columns
 ```{r}
 plays_qb_test$air_pred <- plogis(pred_air$fit)
-plays_qb_test$air_zero_pred <- plogis(pred_air_zero$fit)
-plays_qb_test$air_gauss_pred <- pred_air_gauss$fit
 plays_qb_test$model4_pred <- plogis(pred4$fit)
-plays_qb_test$model4_log_pred <- plogis(pred4_log$fit)
-plays_qb_test$model4_gauss_pred <- pred4_gauss$fit
-plays_qb_test$model6_pred <- plogis(pred6$fit)
-plays_qb_test$model6_gauss_pred <- pred6_gauss$fit
-plays_qb_test$ben_pred <- plogis(pred_ben$fit)
-plays_qb_test$ben_gauss_pred <- pred_ben_gauss$fit
+plays_qb_test$xgb_pred <- xgb_mod_full_pred
+
 ```
 
 Add cpoe columns
 ```{r}
 plays_qb_test %<>% mutate(cpoe_air = complete_pass - air_pred,
-                          cpoe_air_zero = complete_pass - air_zero_pred,
-                          cpoe_air_gauss = complete_pass - air_gauss_pred,
                           cpoe_model4 = complete_pass - model4_pred,
-                          cpoe_model4_log = complete_pass - model4_log_pred,
-                          cpoe_model4_gauss = complete_pass - model4_gauss_pred,
-                          cpoe_model6 = complete_pass - model6_pred,
-                          cpoe_model6_gauss = complete_pass - model6_gauss_pred,
-                          cpoe_ben = complete_pass - ben_pred,
-                          cpoe_ben_gauss = complete_pass - ben_gauss_pred)
+                          cpoe_xgb = complete_pass - xgb_pred)
 ```
 
 Group by season and qb
@@ -47,24 +34,12 @@ Group by season and qb
 cpoe_by_season <- plays_qb_test %>% group_by(passer_player_name, season) %>% 
   summarise(attempts = n(),
             cpoe_sum_air_season = sum(cpoe_air),
-            cpoe_sum_air_zero_season = sum(cpoe_air_zero),
-            cpoe_sum_air_gauss_season = sum(cpoe_air_gauss),
             cpoe_sum_model4_season = sum(cpoe_model4),
-            cpoe_sum_model4_log_season = sum(cpoe_model4_log),
-            cpoe_sum_model6_season = sum(cpoe_model6),
-            cpoe_sum_model6_gauss_season = sum(cpoe_model6_gauss),
-            cpoe_sum_ben_season = sum(cpoe_ben),
-            cpoe_sum_ben_gauss_season = sum(cpoe_ben_gauss),
+            cpoe_sum_xgb_season = sum(cpoe_xgb),
             
             cpoe_mean_air_season = mean(cpoe_air),
-            cpoe_mean_air_zero_season = mean(cpoe_air_zero),
-            cpoe_mean_air_gauss_season = mean(cpoe_air_gauss),
             cpoe_mean_model4_season = mean(cpoe_model4),
-            cpoe_mean_model4_log_season = mean(cpoe_model4_log),
-            cpoe_mean_model6_season = mean(cpoe_model6),
-            cpoe_mean_model6_gauss_season = mean(cpoe_model6_gauss),
-            cpoe_mean_ben_season = mean(cpoe_ben),
-            cpoe_mean_ben_gauss_season = mean(cpoe_ben_gauss))
+            cpoe_mean_xgb_season = mean(cpoe_xgb))
 ```
 
 Test year over year
