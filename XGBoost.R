@@ -1,12 +1,192 @@
-sample <- sample.int(n = nrow(cpoe_plays), size = floor(0.7*nrow(cpoe_plays)), replace = F)
-train <- cpoe_plays[sample,]
-test <- cpoe_plays[-sample,]
+library(xgboost)
+library(caret)
+library(tidyverse)
+library(e1071)
+library(gmailr)
+library(glue)
+library(magrittr)
 
-train %>% sparse.model.matrix(complete_pass~.-1, data = .)
+cpoe_passes <- readRDS("cpoe_passes")
+cpoe_passes %<>%  mutate(
+  air_is_zero = if_else(air_yards == 0, 1, 0),
+  pass_is_middle = if_else(pass_location == "middle", 1, 0),
+  under_two_min = if_else(half_seconds_remaining <= 120, 1, 0),
+  early_downs = if_else(down < 3, 1, 0),
+  tipped = if_else(str_detect(desc, fixed("knocked", ignore_case = TRUE)) | str_detect(desc, fixed("batted", ignore_case = TRUE)) | str_detect(desc, fixed("knocked", ignore_case = TRUE)), 1, 0)
+)
 
-bst <- xgboost(data = as.matrix(train[,-1]), 
-               label = as.matrix(train[,1]),
-               nrounds = 15,
-               objective = "binary:logistic")
-xgboost::xgb.importance(model = bst) %>% xgboost::xgb.ggplot.importance()
+# select only the variables needed for the model
+model_vars <- cpoe_passes %>% select(complete_pass, air_yards, yardline_100, ydstogo, receiver_position, down, qtr, wp, ep, air_is_zero, pass_is_middle, under_two_min, early_downs, tipped)
+
+# check types of variables - need to convert chr to factor for the xgb.DMatrix
+str(model_vars)
+
+# receiver position was our only chr, convert to factor
+model_vars$receiver_position <- model_vars$receiver_position %>% as.factor()
+
+# check again to make sure
+str(model_vars)
+
+# set seed (nice) for reproducibility
+set.seed(12345)
+
+# create indecies for splitting
+train_index <- createDataPartition(y = model_vars$complete_pass, p = .7, list = FALSE)
+
+# split into train and test
+train <- model_vars[train_index,]
+test <- model_vars[-train_index,]
+
+model.matrix(~., data = train)
+
+# convert the train and test into xgb.DMatrix
+# using model.matrix will handle converting factors to dummy columns
+x_train = xgb.DMatrix(model.matrix(~., data = train %>% select(-complete_pass)), label = train$complete_pass)
+y_train = train$complete_pass %>% as.factor() 
+
+x_test = xgb.DMatrix(model.matrix(~., data = test %>% select(-complete_pass)), label = test$complete_pass)
+y_test = test$complete_pass %>% as.factor() 
+
+full_train = xgb.DMatrix(model.matrix(~., data = model_vars %>% select(-complete_pass)), label = model_vars$complete_pass)
+# tuning parameters to try
+xgb_tgrid <- expand.grid(
+  nrounds = c(15:20),
+  eta = c(0.2, 0.3),
+  gamma = 4,
+  colsample_bytree = 0.7,
+  subsample = 0.7,
+  max_depth = c(4:6),
+  min_child_weight = c(1:3))
+
+# create seeds for reproducible parallel processing
+# set seed for randomly obtaing seeds
+set.seed(1)
+
+# length = num folds + 1
+seeds <- vector(mode = "list", length = 6)
+
+# seed for each of the parameter options (hence nrow(tgrid))
+for (i in 1:5) {
+  seeds[[i]] <- sample.int(1000, nrow(xgb_tgrid))
+}
+
+# final model seed, only 1  
+seeds[[6]] <- sample.int(100, 1)
+
+
+# specifying cv method and num folds, enable parallel compute
+xgb_trcontrol = trainControl(
+  method = "cv",
+  number = 5,
+  allowParallel = TRUE,
+  verboseIter = TRUE,
+  returnData = FALSE,
+  seeds = seeds)
+
+set.seed(12345)
+# train model
+start_time <- proc.time()
+xgb_model <- caret::train(x_train,
+                         y_train,
+                         trControl = xgb_trcontrol,
+                         tuneGrid = xgb_tgrid,
+                         method = "xgbTree")
+end_time <- proc.time()
+run_time <- (end_time - start_time)[3] %>% lubridate::seconds_to_period() %>% round()
+
+
+# setup email
+gm_auth_configure(path = "credentials.json")
+gm_auth(email = TRUE)
+
+
+model_email <-
+  gm_mime() %>%
+  gm_to("8477224534@vtext.com") %>%
+  gm_from("bosoxboy3@gmail.com") %>%
+  gm_subject("") %>%
+  gm_text_body(glue("Run Time: {run_time}
+  Accuracy: {xgb_model$results$Accuracy %>% max() %>% round(4)}
+  nrounds: {xgb_model$bestTune$nrounds}
+  max_depth: {xgb_model$bestTune$max_depth}
+  eta: {xgb_model$bestTune$eta}
+  gamma: {xgb_model$bestTune$gamma}
+  colsample_bytree: {xgb_model$bestTune$colsample_bytree}"))
+
+gm_send_message(model_email)
+
+
+xgb_model$finalModel$param
+
+
+
+
+# using the xgboost package and cv method built in
+
+params <- list(booster = "gbtree", objective = "binary:logistic", eta = 0.1, gamma = 3, max_depth = 6, min_child_weight = 1, subsample = 1, colsample_bytree = 1, lambda = 10, alpha = 5, seeds = seeds)
+set.seed(12345)
+xcv_1 <-xgboost::xgb.cv(params = params, data = x_train, nrounds = 100, nfold = 5, showsd = T, stratified = T, print_every_n = 1, early_stopping_rounds = 20)
+
+# what was the lowest error
+min(xcv_1$evaluation_log$test_error_mean)
+min(xcv_1$evaluation_log$train_error_mean)
+
+# which round was it from
+nrounds <- which(xcv_1$evaluation_log$test_error_mean == min(xcv_1$evaluation_log$test_error_mean))
+which(xcv_1$evaluation_log$train_error_mean == min(xcv_1$evaluation_log$train_error_mean))
+
+# train model, find where it had best rounds, re-train with those rounds
+set.seed(12345)
+xgb_mod <- xgboost::xgboost(params = params, data = x_train, nrounds = nrounds, verbose = 2)
+
+
+# plot importance of variables
+xgb.ggplot.importance(xgb.importance(model = xgb.Booster.complete(xgb_mod)))
+
+# make prediction with model
+xgb_mod_pred <- predict(xgb_mod, x_test)
+
+# add predictions to test data
+test$pred <- xgb_mod_pred
+
+# find abs and sq error
+test %<>% mutate(error = complete_pass - pred)
+
+test %>% summarise(mean_abs_error = mean(abs(error)),
+                   mean_sq_error = mean(error^2),
+                   root_mean_sq_error = sqrt(mean(error^2)))
+
+# tune for full dataset
+set.seed(1)
+xgb_cv_full <- xgboost::xgb.cv(params = params, data = full_train, nrounds = 100, nfold = 5, showsd = T, stratified = T, print_every_n = 1, early_stopping_rounds = 10)
+
+# what was the lowest error
+min(xgb_cv_full$evaluation_log$test_error_mean)
+min(xgb_cv_full$evaluation_log$train_error_mean)
+
+# which round was it from
+nrounds <- which(xgb_cv_full$evaluation_log$test_error_mean == min(xgb_cv_full$evaluation_log$test_error_mean))[1]
+which(xgb_cv_full$evaluation_log$train_error_mean == min(xgb_cv_full$evaluation_log$train_error_mean))
+
+xgb_mod_full <- xgboost::xgboost(params = params, data = full_train, nrounds = nrounds, verbose = 2)
+
+
+# plot importance of variables
+xgb.ggplot.importance(xgb.importance(model = xgb.Booster.complete(xgb_mod_full)))
+
+# make prediction with model
+xgb_mod_full_pred <- predict(xgb_mod_full, full_train)
+
+# add predictions to test data
+model_vars$pred <- xgb_mod_full_pred
+
+# find abs and sq error
+model_vars %<>% mutate(error = complete_pass - pred)
+
+model_vars %>% summarise(mean_abs_error = mean(abs(error)),
+                   mean_sq_error = mean(error^2),
+                   root_mean_sq_error = sqrt(mean(error^2)))
+cpoe_passes$pred <- model_vars$pred
+# now do to YoYTest to compare with other models
+
 
