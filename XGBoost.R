@@ -7,28 +7,26 @@ library(glue)
 library(magrittr)
 
 cpoe_passes <- readRDS("cpoe_passes")
-cpoe_passes %<>%  mutate(
-  air_is_zero = if_else(air_yards == 0, 1, 0),
-  pass_is_middle = if_else(pass_location == "middle", 1, 0),
-  under_two_min = if_else(half_seconds_remaining <= 120, 1, 0),
-  early_downs = if_else(down < 3, 1, 0),
-  tipped = if_else(str_detect(desc, fixed("knocked", ignore_case = TRUE)) | str_detect(desc, fixed("batted", ignore_case = TRUE)) | str_detect(desc, fixed("knocked", ignore_case = TRUE)), 1, 0)
-)
 
 # select only the variables needed for the model
-model_vars <- cpoe_passes %>% select(complete_pass, air_yards, yardline_100, ydstogo, receiver_position, down, qtr, wp, ep, air_is_zero, pass_is_middle, under_two_min, early_downs, tipped)
+model_vars <- cpoe_passes %>% 
+  select(complete_pass, air_yards, yardline_100, ydstogo, receiver_position, 
+         down, qtr, wp, ep, air_is_zero, pass_is_middle, under_two_min, early_downs, 
+         tipped, hail_mary, roof, posteam_type)
 
 # check types of variables - need to convert chr to factor for the xgb.DMatrix
 str(model_vars)
 
 # receiver position was our only chr, convert to factor
 model_vars$receiver_position <- model_vars$receiver_position %>% as.factor()
+model_vars$roof <- model_vars$roof %>% as.factor()
+model_vars$posteam_type <- model_vars$posteam_type %>% as.factor()
 
 # check again to make sure
 str(model_vars)
 
 # set seed (nice) for reproducibility
-set.seed(12345)
+set.seed(1)
 
 # create indecies for splitting
 train_index <- createDataPartition(y = model_vars$complete_pass, p = .7, list = FALSE)
@@ -37,14 +35,14 @@ train_index <- createDataPartition(y = model_vars$complete_pass, p = .7, list = 
 train <- model_vars[train_index,]
 test <- model_vars[-train_index,]
 
-model.matrix(~., data = train)
+model.matrix(~.+0, data = train)
 
 # convert the train and test into xgb.DMatrix
 # using model.matrix will handle converting factors to dummy columns
-x_train = xgb.DMatrix(model.matrix(~., data = train %>% select(-complete_pass)), label = train$complete_pass)
+x_train = xgb.DMatrix(model.matrix(~.+0, data = train %>% select(-complete_pass)), label = train$complete_pass)
 y_train = train$complete_pass %>% as.factor() 
 
-x_test = xgb.DMatrix(model.matrix(~., data = test %>% select(-complete_pass)), label = test$complete_pass)
+x_test = xgb.DMatrix(model.matrix(~.+0, data = test %>% select(-complete_pass)), label = test$complete_pass)
 y_test = test$complete_pass %>% as.factor() 
 
 full_train = xgb.DMatrix(model.matrix(~., data = model_vars %>% select(-complete_pass)), label = model_vars$complete_pass)

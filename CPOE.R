@@ -37,34 +37,26 @@ plays %<>% left_join(
                y = positions %>% select(season, season_type, abbr_player_name, team, rusher_position = position, gsis_id),
                by = c("season", "season_type", "rusher_player_name" = "abbr_player_name", "posteam" = "team", "rusher_player_id" = "gsis_id"))
 
-cpoe_plays <- plays %>%
-  filter(play == 1 & (complete_pass == 1 |
-           incomplete_pass == 1 | interception == 1)) %>%
+cpoe_passes <- plays %>%
+  filter(complete_pass == 1 |
+           incomplete_pass == 1 | interception == 1) %>%
   filter(
     qb_spike == 0,
-    air_yards >= -10,
-    air_yards <= 55,
-    ydstogo <= 35,
-    !is.na(receiver_player_id),
-    !is.na(pass_location)
+    air_yards >= -10
   ) %>%
   filter(!str_detect(desc, fixed("thrown away", ignore_case = TRUE)),
-         !str_detect(desc, fixed("throw away", ignore_case = TRUE)),
-         !str_detect(desc, fixed("hail mary", ignore_case = TRUE))) %>%
+         !str_detect(desc, fixed("throw away", ignore_case = TRUE))) %>%
   filter(passer_position == "QB",
-         receiver_position %in% c("FB", "RB", "WR", "TE")) %>%
+         receiver_position %in% c("FB", "RB", "WR", "TE"),
+         !is.na(pass_location)) %>%
   mutate(
-    passer_is_qb = if_else(passer_position == "QB", 1, 0),
-    receiver_is_wr = if_else(receiver_position == "WR", 1, 0),
-    receiver_is_te = if_else(receiver_position == "TE", 1, 0),
-    receiver_is_rb = if_else(receiver_position == "RB", 1, 0),
-    receiver_is_fb = if_else(receiver_position == "FB", 1, 0),
-    receiver_is_none = if_else(!(receiver_position %in% c("WR", "TE", "RB", "FB")), 1, 0),
+    roof = if_else(roof == "closed", "dome", roof),
     air_is_zero = if_else(air_yards == 0, 1, 0),
     pass_is_middle = if_else(pass_location == "middle", 1, 0),
     under_two_min = if_else(half_seconds_remaining <= 120, 1, 0),
     early_downs = if_else(down < 3, 1, 0),
-    tipped = if_else(str_detect(desc, fixed("knocked", ignore_case = TRUE)) | str_detect(desc, fixed("batted", ignore_case = TRUE)) | str_detect(desc, fixed("knocked", ignore_case = TRUE)), 1, 0)
+    tipped = if_else(str_detect(desc, fixed("knocked", ignore_case = TRUE)) | str_detect(desc, fixed("batted", ignore_case = TRUE)) | str_detect(desc, fixed("knocked", ignore_case = TRUE)), 1, 0),
+    hail_mary = if_else(str_detect(desc, fixed("hail mary", ignore_case = TRUE)), 1, 0)
   )
 
 
