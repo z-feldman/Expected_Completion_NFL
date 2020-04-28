@@ -10,32 +10,6 @@ library(broom)
 library(xgboost)
 library(Ckmeans.1d.dp)
 source("https://raw.githubusercontent.com/leesharpe/nfldata/master/code/plays-functions.R")
-# Tidy Data ---------------------------------------------------------------
-
-
-plays <- readRDS("playdata")
-plays %<>% apply_name_fixes()
-positions <- read_csv("https://raw.githubusercontent.com/z-feldman/nfl_data/master/nfl_rosters")
-positions %<>% mutate(
-  abbr_player_name = ifelse(abbr_player_name == "G.Minshew II", "G.Minshew", abbr_player_name),
-  abbr_player_name = ifelse(abbr_player_name == "Jos.Allen", "J.Allen", abbr_player_name),
-  abbr_player_name = ifelse(abbr_player_name == "D.Chark Jr.", "D.Chark", abbr_player_name))
-
-positions %<>% 
-  filter(season >= 2009) %>% fix_team_abbreviations(old_to_new = T) %>% 
-  mutate(position = if_else(position == "HB", "RB", position))
-
-plays %<>% mutate(season_type = if_else(week >= 18, "post", "reg"))
-
-plays %<>% left_join(
-                   y = positions %>% select(season, season_type, abbr_player_name, team, receiver_position = position, gsis_id),
-                   by = c("season", "season_type", "receiver_player_name" = "abbr_player_name", "posteam" = "team", "receiver_player_id" = "gsis_id"))
-plays %<>% left_join(
-                   y = positions %>% select(season, season_type, abbr_player_name, team, passer_position = position, gsis_id),
-                   by = c("season", "season_type", "passer_player_name" = "abbr_player_name", "posteam" = "team", "passer_player_id" = "gsis_id"))
-plays %<>% left_join(
-               y = positions %>% select(season, season_type, abbr_player_name, team, rusher_position = position, gsis_id),
-               by = c("season", "season_type", "rusher_player_name" = "abbr_player_name", "posteam" = "team", "rusher_player_id" = "gsis_id"))
 
 cpoe_passes <- plays %>%
   filter(complete_pass == 1 |
@@ -48,7 +22,8 @@ cpoe_passes <- plays %>%
          !str_detect(desc, fixed("throw away", ignore_case = TRUE))) %>%
   filter(passer_position == "QB",
          receiver_position %in% c("FB", "RB", "WR", "TE"),
-         !is.na(pass_location)) %>%
+         !is.na(pass_location),
+         !is.na(receiver_player_id)) %>%
   mutate(
     roof = if_else(roof == "closed", "dome", roof),
     air_is_zero = if_else(air_yards == 0, 1, 0),

@@ -1,3 +1,6 @@
+
+# Load Libraries ----------------------------------------------------------
+
 library(xgboost)
 library(caret)
 library(tidyverse)
@@ -6,36 +9,39 @@ library(gmailr)
 library(glue)
 library(magrittr)
 
-cpoe_passes <- readRDS("cpoe_passes")
 
-# select only the variables needed for the model
+# Load Data ---------------------------------------------------------------
+
+
+cpoe_passes <- readRDS("data/cpoe_passes")
+
+
+# Select only the variables needed for the model --------------------------
+
 model_vars <- cpoe_passes %>% 
   select(complete_pass, air_yards, yardline_100, ydstogo, receiver_position, 
          down, qtr, wp, ep, air_is_zero, pass_is_middle, under_two_min, early_downs, 
-         tipped, hail_mary, roof, posteam_type)
+         tipped, hail_mary, roof, posteam_type, week)
 
-# check types of variables - need to convert chr to factor for the xgb.DMatrix
+
+# Convert chr to factor ---------------------------------------------------
+
+model_vars %<>% modify_if(is_character, as_factor)
+
+
+# check to make sure no characters
 str(model_vars)
 
-# receiver position was our only chr, convert to factor
-model_vars$receiver_position <- model_vars$receiver_position %>% as.factor()
-model_vars$roof <- model_vars$roof %>% as.factor()
-model_vars$posteam_type <- model_vars$posteam_type %>% as.factor()
+# set seed for reproducibility -------------------------------------------
+set.seed(69)
 
-# check again to make sure
-str(model_vars)
-
-# set seed (nice) for reproducibility
-set.seed(1)
-
-# create indecies for splitting
+# create indecies for splitting (need to use a specific column from df for it to run)
 train_index <- createDataPartition(y = model_vars$complete_pass, p = .7, list = FALSE)
 
 # split into train and test
 train <- model_vars[train_index,]
 test <- model_vars[-train_index,]
 
-model.matrix(~.+0, data = train)
 
 # convert the train and test into xgb.DMatrix
 # using model.matrix will handle converting factors to dummy columns
@@ -121,25 +127,21 @@ xgb_model$finalModel$param
 
 # using the xgboost package and cv method built in
 
-params <- list(booster = "gbtree", objective = "binary:logistic", eta = 0.1, gamma = 3, max_depth = 6, min_child_weight = 1, subsample = 1, colsample_bytree = 1, lambda = 10, alpha = 5, seeds = seeds)
-set.seed(12345)
-xcv_1 <-xgboost::xgb.cv(params = params, data = x_train, nrounds = 100, nfold = 5, showsd = T, stratified = T, print_every_n = 1, early_stopping_rounds = 20)
+params <- list(booster = "gbtree", objective = "binary:logistic", eta = 0.1, gamma = 3, max_depth = 6, min_child_weight = 1, subsample = 1, colsample_bytree = 1, lambda = 10, alpha = 5)
+xcv_1 <-xgboost::xgb.cv(params = params, data = x_train, nrounds = 100, nfold = 5, showsd = T, stratified = T, print_every_n = 1, early_stopping_rounds = 20, seed = 69)
 
-# what was the lowest error
-min(xcv_1$evaluation_log$test_error_mean)
-min(xcv_1$evaluation_log$train_error_mean)
 
-# which round was it from
-nrounds <- which(xcv_1$evaluation_log$test_error_mean == min(xcv_1$evaluation_log$test_error_mean))
-which(xcv_1$evaluation_log$train_error_mean == min(xcv_1$evaluation_log$train_error_mean))
+# which round was lowest test error from
+nrounds <- xcv_1$best_iteration
 
-# train model, find where it had best rounds, re-train with those rounds
-set.seed(12345)
-xgb_mod <- xgboost::xgboost(params = params, data = x_train, nrounds = nrounds, verbose = 2)
-
+# train model with that number of rounds
+xgb_mod <- xgboost::xgboost(params = params, data = x_train, nrounds = nrounds, verbose = 2, seed = 69)
 
 # plot importance of variables
 xgb.ggplot.importance(xgb.importance(model = xgb.Booster.complete(xgb_mod)))
+
+xgb.importance(feature_names = colnames(xgb_mod), model = xgb_mod, target = )
+
 
 # make prediction with model
 xgb_mod_pred <- predict(xgb_mod, x_test)
@@ -172,6 +174,7 @@ xgb_mod_full <- xgboost::xgboost(params = params, data = full_train, nrounds = n
 # plot importance of variables
 xgb.ggplot.importance(xgb.importance(model = xgb.Booster.complete(xgb_mod_full)))
 
+
 # make prediction with model
 xgb_mod_full_pred <- predict(xgb_mod_full, full_train)
 
@@ -186,18 +189,4 @@ model_vars %>% summarise(mean_abs_error = mean(abs(error)),
                    root_mean_sq_error = sqrt(mean(error^2)))
 cpoe_passes$pred <- model_vars$pred
 # now do to YoYTest to compare with other models
-
-=======
-sample <- sample.int(n = nrow(cpoe_plays), size = floor(0.7*nrow(cpoe_plays)), replace = F)
-train <- cpoe_plays[sample,]
-test <- cpoe_plays[-sample,]
-
-train %>% sparse.model.matrix(complete_pass~.-1, data = .)
-
-bst <- xgboost(data = as.matrix(train[,-1]), 
-               label = as.matrix(train[,1]),
-               nrounds = 15,
-               objective = "binary:logistic")
-xgboost::xgb.importance(model = bst) %>% xgboost::xgb.ggplot.importance()
->>>>>>> 1bb485acf3e054eb078d63cce526b2c8186bbe6d
 
