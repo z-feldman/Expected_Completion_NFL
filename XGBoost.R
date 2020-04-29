@@ -2,11 +2,7 @@
 # Load Libraries ----------------------------------------------------------
 
 library(xgboost)
-library(caret)
 library(tidyverse)
-library(e1071)
-library(gmailr)
-library(glue)
 library(magrittr)
 
 
@@ -14,7 +10,7 @@ library(magrittr)
 
 
 cpoe_passes <- readRDS("data/cpoe_passes")
-
+cpoe_19_passes <- readRDS("data/cpoe_19_passes")
 
 # Select only the variables needed for the model --------------------------
 
@@ -50,7 +46,7 @@ x_test = xgb.DMatrix(model.matrix(~.+0, data = test %>% select(-complete_pass)),
 full_train = xgb.DMatrix(model.matrix(~., data = model_vars %>% select(-complete_pass)), label = model_vars$complete_pass)
 
 
-# using the xgboost package and cv method built in, test different parameters
+# Using the xgboost package and cv method built in, test different parameters -----------
 set.seed(69)
 params <-
   list(
@@ -64,24 +60,26 @@ params <-
     colsample_bytree = 1,
     base_score = mean(model_vars$complete_pass)
   )
-xcv_1 <-xgboost::xgb.cv(params = params, data = x_train, nrounds = 100, nfold = 5, showsd = T, stratified = T, print_every_n = 1, early_stopping_rounds = 20)
+xgb_cv <-xgboost::xgb.cv(params = params, data = x_train, nrounds = 100, nfold = 5, showsd = T, stratified = T, print_every_n = 1, early_stopping_rounds = 20)
 
 
 # which round was lowest best iteration from
-nrounds <- xcv_1$best_iteration
+nrounds <- xgb_cv$best_iteration
 
 # train model with that number of rounds
 set.seed(69)
 xgb_mod <- xgboost::xgboost(params = params, data = x_train, nrounds = nrounds, verbose = 2)
 
 # plot importance of variables
-importance_plot <- xgb.ggplot.importance(xgb.importance(model = xgb.Booster.complete(xgb_mod)))
-
-importance_plot
-
 importance <- xgb.importance(feature_names = colnames(xgb_mod), model = xgb_mod)
 
 importance
+
+importance_plot <- xgb.ggplot.importance(importance_matrix = importance, n_clusters = c(2, 10))
+
+importance_plot
+
+
 
 # make prediction with model
 xgb_mod_pred <- predict(xgb_mod, x_test)

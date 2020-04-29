@@ -13,7 +13,7 @@ library(tidyverse)
 
 Test XGBoost, GAM, Air Yards only GAM
 ```{r}
-plays_qb_test <- cpoe_passes %>% select(season, passer_player_name, complete_pass)
+plays_qb_test <- cpoe_passes %>% filter(season >= 2013) %>% select(season, passer_player_name, complete_pass)
 ```
 
 Add prediction columns
@@ -36,12 +36,13 @@ Group by season and qb
 cpoe_by_season <- plays_qb_test %>% group_by(passer_player_name, season) %>% 
   summarise(attempts = n(),
             cpoe_sum_xgb_season = sum(cpoe_xgb),
-            cpoe_sum_gam_season = sum(cpoe_gam),
-            cpoe_sum_air_season = sum(cpoe_air),
+            #cpoe_sum_gam_season = sum(cpoe_gam),
+            #cpoe_sum_air_season = sum(cpoe_air),
             
             cpoe_mean_xgb_season = mean(cpoe_xgb),
-            cpoe_mean_gam_season = mean(cpoe_gam),
-            cpoe_mean_air_season = mean(cpoe_air))
+            #cpoe_mean_gam_season = mean(cpoe_gam),
+            #cpoe_mean_air_season = mean(cpoe_air))
+  )
 ```
 
 Test year over year with map
@@ -88,7 +89,6 @@ test_19 %>% summarise(xgb_rmse = round(sqrt(mean(xgb_error^2)), 3),
                       gam_rmse = round(sqrt(mean(gam_error^2)), 3),
                       air_rmse = round(sqrt(mean(air_error^2)), 3))
 ```
-
 
 
 
