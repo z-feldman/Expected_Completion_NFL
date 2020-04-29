@@ -7,37 +7,27 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(broom)
+library(tidyverse)
 ```
 
-Test 4_gauss, 5, Ben, Josh, air rn, already having run predictions in CPOE.R
+Test XGBoost, GAM, Air Yards only GAM
 ```{r}
 plays_qb_test <- cpoe_passes %>% select(season, passer_player_name, complete_pass)
 ```
 
 Add prediction columns
 ```{r}
-plays_qb_test$air_pred <- plogis(pred_air$fit)
-plays_qb_test$model4_pred <- plogis(pred4$fit)
-plays_qb_test$xgb_pred <- xgb_mod_full_pred
-
-=======
-plays_qb_test$air_zero_pred <- plogis(pred_air_zero$fit)
-plays_qb_test$air_gauss_pred <- pred_air_gauss$fit
-plays_qb_test$model4_pred <- plogis(pred4$fit)
-plays_qb_test$model4_log_pred <- plogis(pred4_log$fit)
-plays_qb_test$model4_gauss_pred <- pred4_gauss$fit
-plays_qb_test$model6_pred <- plogis(pred6$fit)
-plays_qb_test$model6_gauss_pred <- pred6_gauss$fit
-plays_qb_test$ben_pred <- plogis(pred_ben$fit)
-plays_qb_test$ben_gauss_pred <- pred_ben_gauss$fit
->>>>>>> 1bb485acf3e054eb078d63cce526b2c8186bbe6d
+plays_qb_test$xgboost_pred <- xgb_mod_full_pred
+plays_qb_test$gam_pred <- gam_pred_full
+plays_qb_test$gam_air_pred <- gam_pred_air_full
 ```
 
 Add cpoe columns
 ```{r}
-plays_qb_test %<>% mutate(cpoe_air = complete_pass - air_pred,
-                          cpoe_model4 = complete_pass - model4_pred,
-                          cpoe_xgb = complete_pass - xgb_pred)
+plays_qb_test %<>% mutate(cpoe_xgb = complete_pass - xgboost_pred,
+                          cpoe_gam = complete_pass - gam_pred,
+                          cpoe_air = complete_pass - gam_air_pred)
 
 ```
 
@@ -45,54 +35,59 @@ Group by season and qb
 ```{r}
 cpoe_by_season <- plays_qb_test %>% group_by(passer_player_name, season) %>% 
   summarise(attempts = n(),
-            cpoe_sum_air_season = sum(cpoe_air),
-            cpoe_sum_model4_season = sum(cpoe_model4),
             cpoe_sum_xgb_season = sum(cpoe_xgb),
+            cpoe_sum_gam_season = sum(cpoe_gam),
+            cpoe_sum_air_season = sum(cpoe_air),
             
-            cpoe_mean_air_season = mean(cpoe_air),
-            cpoe_mean_model4_season = mean(cpoe_model4),
-            cpoe_mean_xgb_season = mean(cpoe_xgb))
+            cpoe_mean_xgb_season = mean(cpoe_xgb),
+            cpoe_mean_gam_season = mean(cpoe_gam),
+            cpoe_mean_air_season = mean(cpoe_air))
 ```
 
-Test year over year
+Test year over year with map
 ```{r}
-cpoe_by_season %>% 
-  filter(attempts >= 320) %>% 
-  group_by(passer_player_name, season) %>% arrange(passer_player_name, season) %>%
-  lm(formula = cpoe_sum_model6_gauss_season ~ lag(cpoe_sum_model6_gauss_season) + season, na.action = na.omit) %>% glance() %>% select(adj.r.squared) %>% as.numeric()
-```
-
-
-```{r}
-cpoe_by_season[10,] %>% map_at(vars(contains("cpoe")), as.character)
-
-cpoe_by_season %>% select(contains("cpoe")) %>% colnames()
-
-
-yoy_model <- function(cpoe, season, df) {
+yoy_model <- function(cpoe, df) {
   lm(data = df, formula = cpoe ~ lag(cpoe), na.action = na.omit) %>% glance() %>%
     select(r.squared) %>% as.numeric()
 }
+
+min_attempts <- 320
+
 cpoe_by_season %>% 
-  filter(attempts >= 320) %>% 
+  filter(attempts >= min_attempts) %>% 
   group_by(passer_player_name, season) %>% 
   arrange(passer_player_name, season) %>% 
   map_at(vars(contains("cpoe")), .f = yoy_model)
 
-
-cpoe_yay -> cpoe_by_season %>% 
-  filter(attempts >= 320) %>% 
+cpoe_by_season %>% filter(attempts >= min_attempts) %>% 
   group_by(passer_player_name, season) %>% 
-  arrange(passer_player_name, season) 
-
-
-cpoe_yay %>% 
-  map_at(vars(contains("cpoe")), ~(lm(. ~ lag(.) + cpoe_yay$season, na.action = na.omit) %>% glance() %>% select(adj.r.squared) %>% as.numeric()))
-
+  arrange(passer_player_name, season) %>%
+  map_at(vars(contains("cpoe")), .f = ~cor(., lag(.), use = "na.or.complete"))
 ```
 
 
+Test against 2019 data
+```{r}
+test_19 <- cpoe_19_passes %>% select(complete_pass, air_yards, yardline_100, ydstogo, receiver_position, 
+         down, qtr, wp, ep, air_is_zero, pass_is_middle, under_two_min, early_downs, 
+         tipped, hail_mary, roof, posteam_type, week, season)
 
+test_19 %<>% modify_if(is_character, as_factor)
+
+test_19_dmatrix <- xgb.DMatrix(model.matrix(~., data = test_19 %>% select(-complete_pass)), label = test_19$complete_pass)
+dimnames(test_19_dmatrix) <- dimnames(full_train)
+test_19$xgb <- predict(xgb_mod_full, test_19_dmatrix)
+test_19$gam <- predict.bam(gam_full, test_19 %>% select(-xgb), type = "response")
+test_19$air <- predict.bam(gam_air_full, test_19 %>% select(-xgb, -gam), type = "response")
+
+test_19 %<>% mutate(xgb_error = complete_pass - xgb,
+                    gam_error = complete_pass - gam,
+                    air_error = complete_pass - air)
+
+test_19 %>% summarise(xgb_rmse = round(sqrt(mean(xgb_error^2)), 3),
+                      gam_rmse = round(sqrt(mean(gam_error^2)), 3),
+                      air_rmse = round(sqrt(mean(air_error^2)), 3))
+```
 
 
 
