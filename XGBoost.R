@@ -52,7 +52,18 @@ full_train = xgb.DMatrix(model.matrix(~., data = model_vars %>% select(-complete
 
 # using the xgboost package and cv method built in, test different parameters
 set.seed(69)
-params <- list(booster = "gbtree", objective = "binary:logistic", eta = 0.15, gamma = 12, max_depth = 6, min_child_weight = 1, subsample = 1, colsample_bytree = 1, base_score = mean(model_vars$complete_pass), seed = 69)
+params <-
+  list(
+    booster = "gbtree",
+    objective = "binary:logistic",
+    eta = 0.15,
+    gamma = 12,
+    max_depth = 6,
+    min_child_weight = 1,
+    subsample = 1,
+    colsample_bytree = 1,
+    base_score = mean(model_vars$complete_pass)
+  )
 xcv_1 <-xgboost::xgb.cv(params = params, data = x_train, nrounds = 100, nfold = 5, showsd = T, stratified = T, print_every_n = 1, early_stopping_rounds = 20)
 
 
