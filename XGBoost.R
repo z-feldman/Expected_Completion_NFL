@@ -16,8 +16,8 @@ cpoe_19_passes <- readRDS("data/cpoe_19_passes")
 
 model_vars <- cpoe_passes %>% 
   select(complete_pass, air_yards, yardline_100, ydstogo, receiver_position, 
-         down, qtr, wp, ep, air_is_zero, pass_is_middle, under_two_min, early_downs, 
-         tipped, hail_mary, roof, posteam_type, week, season)
+         down, qtr, wp, ep, air_is_zero, pass_is_middle, under_two_min,
+         tipped, hail_mary, roof, posteam_type, week, season, qb_hit, shotgun, no_huddle, goal_to_go)
 
 
 # Clean Data Type ---------------------------------------------------
@@ -47,20 +47,21 @@ full_train = xgb.DMatrix(model.matrix(~., data = model_vars %>% select(-complete
 
 
 # Using the xgboost package and cv method built in, test different parameters -----------
-set.seed(69)
+
 params <-
   list(
     booster = "gbtree",
     objective = "binary:logistic",
     eta = 0.15,
-    gamma = 12,
-    max_depth = 6,
+    gamma = 14,
+    max_depth = 7,
     min_child_weight = 1,
     subsample = 1,
     colsample_bytree = 1,
     base_score = mean(model_vars$complete_pass)
   )
-xgb_cv <-xgboost::xgb.cv(params = params, data = x_train, nrounds = 100, nfold = 5, showsd = T, stratified = T, print_every_n = 1, early_stopping_rounds = 20)
+set.seed(69)
+xgb_cv <-xgboost::xgb.cv(params = params, data = x_train, nrounds = 150, nfold = 5, showsd = T, stratified = T, print_every_n = 1, early_stopping_rounds = 20)
 
 
 # which round was lowest best iteration from
@@ -75,7 +76,7 @@ importance <- xgb.importance(feature_names = colnames(xgb_mod), model = xgb_mod)
 
 importance
 
-importance_plot <- xgb.ggplot.importance(importance_matrix = importance, n_clusters = c(2, 10))
+importance_plot <- xgb.ggplot.importance(importance_matrix = importance, n_clusters = c(4, 10))
 
 importance_plot
 
