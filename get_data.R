@@ -53,7 +53,7 @@ cpoe_passes <- plays %>%
     pass_is_middle = if_else(pass_location == "middle", 1, 0),
     under_two_min = if_else(half_seconds_remaining <= 120, 1, 0),
     early_downs = if_else(down < 3, 1, 0),
-    tipped = if_else(str_detect(desc, fixed(" tipped", ignore_case = TRUE)) | str_detect(desc, fixed(" tips", ignore_case = TRUE)) | str_detect(desc, fixed(" batted", ignore_case = TRUE)) | str_detect(desc, fixed(" bats", ignore_case = TRUE)) | str_detect(desc, fixed(" knocked", ignore_case = TRUE)) | str_detect(desc, fixed(" knocks", ignore_case = TRUE)), 1, 0),
+    tipped = if_else(str_detect(desc, fixed(" tipped", ignore_case = TRUE)) | str_detect(desc, fixed(" batted", ignore_case = TRUE)) | str_detect(desc, fixed(" bats", ignore_case = TRUE)) | str_detect(desc, fixed(" knocked", ignore_case = TRUE)) | str_detect(desc, fixed(" knocks", ignore_case = TRUE)), 1, 0),
     hail_mary = if_else(str_detect(desc, fixed("hail mary", ignore_case = TRUE)), 1, 0)
   )
 
@@ -77,7 +77,7 @@ cpoe_19_passes <- pbp19 %>%
     pass_is_middle = if_else(pass_location == "middle", 1, 0),
     under_two_min = if_else(half_seconds_remaining <= 120, 1, 0),
     early_downs = if_else(down < 3, 1, 0),
-    tipped = if_else(str_detect(desc, fixed(" tipped", ignore_case = TRUE)) | str_detect(desc, fixed(" tips", ignore_case = TRUE)) | str_detect(desc, fixed(" batted", ignore_case = TRUE)) | str_detect(desc, fixed(" bats", ignore_case = TRUE)) | str_detect(desc, fixed(" knocked", ignore_case = TRUE)) | str_detect(desc, fixed(" knocks", ignore_case = TRUE)), 1, 0),
+    tipped = if_else(str_detect(desc, fixed(" tipped", ignore_case = TRUE)) | str_detect(desc, fixed(" batted", ignore_case = TRUE)) | str_detect(desc, fixed(" bats", ignore_case = TRUE)) | str_detect(desc, fixed(" knocked", ignore_case = TRUE)) | str_detect(desc, fixed(" knocks", ignore_case = TRUE)), 1, 0),
     hail_mary = if_else(str_detect(desc, fixed("hail mary", ignore_case = TRUE)), 1, 0)
   )
 
