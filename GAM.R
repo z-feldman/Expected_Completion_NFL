@@ -42,7 +42,7 @@ summary(gam_model)
 appraise(gam_model, type = "response")
 mgcv::k.check(gam_model)
 
-plot(gam_model, pages = 21)
+plot(gam_model)
 
 
 
