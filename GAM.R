@@ -4,7 +4,7 @@ library(mgcv)
 library(magrittr)
 library(gratia)
 library(tidyverse)
-
+library(cowplot)
 
 # Partition Data ----------------------------------------------------------
 model_vars <- cpoe_passes %>% 
@@ -25,13 +25,13 @@ gam_model <- train_gam %>%
   bam(
     data = .,
     formula = complete_pass ~
-      s(air_yards, k = 12) + s(ydstogo, k = 12) + s(yardline_100, k = 12) + s(wp) + s(ep) + ti(air_yards, ydstogo, by = factor(receiver_position)) +
+      s(air_yards, k = 12) + s(ydstogo, k = 12) + s(yardline_100, k = 12) + s(wp) + s(ep) + ti(air_yards, ydstogo) +
       ti(air_yards, yardline_100) + ti(ydstogo, yardline_100) +
-      ti(air_yards, ydstogo, by = factor(down)) + ti(air_yards, yardline_100, by = factor(down)) +
-      ti(ydstogo, yardline_100, by = factor(down)) + factor(down) +
+      ti(air_yards, ydstogo) + ti(air_yards, yardline_100) +
+      ti(ydstogo, yardline_100) + factor(down) +
       factor(receiver_position) + factor(pass_is_middle) +
-      factor(tipped) + factor(hail_mary) + factor(roof) + factor(posteam_type) + week + season + 
-      factor(qb_hit) + factor(shotgun),
+      factor(tipped) + factor(hail_mary) + factor(roof) + factor(posteam_type) + factor(week, ordered = TRUE) + season + 
+      factor(qb_hit),
     family = binomial()
   )
 
@@ -42,7 +42,9 @@ summary(gam_model)
 appraise(gam_model, type = "response")
 mgcv::k.check(gam_model)
 
-plot(gam_model, pages = 2)
+plot(gam_model, pages = 21)
+
+
 
 
 
@@ -61,13 +63,13 @@ gam_full <- model_vars %>%
   bam(
     data = .,
     formula = complete_pass ~
-      s(air_yards, k = 12) + s(ydstogo, k = 12) + s(yardline_100, k = 12) + s(wp) + s(ep) + ti(air_yards, ydstogo, by = factor(receiver_position)) +
+      s(air_yards, k = 12) + s(ydstogo, k = 12) + s(yardline_100, k = 12) + s(wp) + s(ep) + ti(air_yards, ydstogo) +
       ti(air_yards, yardline_100) + ti(ydstogo, yardline_100) +
-      ti(air_yards, ydstogo, by = factor(down)) + ti(air_yards, yardline_100, by = factor(down)) +
-      ti(ydstogo, yardline_100, by = factor(down)) + factor(down) +
+      ti(air_yards, ydstogo) + ti(air_yards, yardline_100) +
+      ti(ydstogo, yardline_100) + factor(down) +
       factor(receiver_position) + factor(pass_is_middle) +
-      factor(tipped) + factor(hail_mary) + factor(roof) + factor(posteam_type) + week + season + 
-      factor(qb_hit) + factor(shotgun),
+      factor(tipped) + factor(hail_mary) + factor(roof) + factor(posteam_type) + factor(week, ordered = TRUE) + season + 
+      factor(qb_hit),
     family = binomial()
   )
 

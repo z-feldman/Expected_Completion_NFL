@@ -3,6 +3,7 @@
 
 library(xgboost)
 library(tidyverse)
+library(caret)
 library(magrittr)
 
 
@@ -31,7 +32,7 @@ str(model_vars)
 set.seed(69)
 
 # create indecies for splitting (need to use a specific column from df for it to run)
-train_index <- createDataPartition(y = model_vars$complete_pass, p = .7, list = FALSE)
+train_index <- createDataPartition(y = model_vars$complete_pass, p = .7, list = FALSE) %>% as.vector()
 
 # split into train and test
 train <- model_vars[train_index,]
@@ -43,7 +44,7 @@ test <- model_vars[-train_index,]
 x_train = xgb.DMatrix(model.matrix(~.+0, data = train %>% select(-complete_pass)), label = train$complete_pass)
 x_test = xgb.DMatrix(model.matrix(~.+0, data = test %>% select(-complete_pass)), label = test$complete_pass)
 
-full_train = xgb.DMatrix(model.matrix(~., data = model_vars %>% select(-complete_pass)), label = model_vars$complete_pass)
+full_train = xgb.DMatrix(model.matrix(~.+0, data = model_vars %>% select(-complete_pass)), label = model_vars$complete_pass)
 
 
 # Using the xgboost package and cv method built in, test different parameters -----------
@@ -58,12 +59,13 @@ params <-
     min_child_weight = 1,
     subsample = 1,
     colsample_bytree = 1,
-    base_score = mean(model_vars$complete_pass)
+    base_score = mean(model_vars$complete_pass),
+    nthread = 0
   )
 set.seed(69)
 xgb_cv <-xgboost::xgb.cv(params = params, data = x_train, nrounds = 150, nfold = 5, showsd = T, stratified = T, print_every_n = 1, early_stopping_rounds = 20)
 
-
+xgboost::xgb.ggplot.deepness(xgb_mod_full)
 # which round was lowest best iteration from
 nrounds <- xgb_cv$best_iteration
 
@@ -76,7 +78,7 @@ importance <- xgb.importance(feature_names = colnames(xgb_mod), model = xgb_mod)
 
 importance
 
-importance_plot <- xgb.ggplot.importance(importance_matrix = importance, n_clusters = c(4, 10))
+importance_plot <- xgb.ggplot.importance(importance_matrix = importance)
 
 importance_plot
 

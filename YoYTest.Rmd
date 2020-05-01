@@ -9,6 +9,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 library(broom)
 library(tidyverse)
+library(knitr)
 ```
 
 Test XGBoost, GAM, Air Yards only GAM
@@ -75,7 +76,7 @@ test_19 <- cpoe_19_passes %>% select(complete_pass, air_yards, yardline_100, yds
 
 test_19 %<>% modify_if(is_character, as_factor)
 
-test_19_dmatrix <- xgb.DMatrix(model.matrix(~., data = test_19 %>% select(-complete_pass)), label = test_19$complete_pass)
+test_19_dmatrix <- xgb.DMatrix(model.matrix(~.+0, data = test_19 %>% select(-complete_pass)), label = test_19$complete_pass)
 dimnames(test_19_dmatrix) <- dimnames(full_train)
 test_19$xgb <- predict(xgb_mod_full, test_19_dmatrix)
 test_19$gam <- predict.bam(gam_full, test_19 %>% select(-xgb), type = "response")
@@ -85,14 +86,22 @@ test_19 %<>% mutate(xgb_error = complete_pass - xgb,
                     gam_error = complete_pass - gam,
                     air_error = complete_pass - air)
 
-test_19 %>% summarise(xgb_rmse = round(sqrt(mean(xgb_error^2)), 4),
-                      gam_rmse = round(sqrt(mean(gam_error^2)), 4),
-                      air_rmse = round(sqrt(mean(air_error^2)), 4))
+test_19 %>% summarise(xgb_mse = round(mean(xgb_error^2), 4),
+                      gam_mse = round(mean(gam_error^2), 4),
+                      air_mse = round(mean(air_error^2), 4))
 ```
 
 
 
 
+```{r}
+results <- matrix(c(.201, .202, .119, .194, 
+                    .204, .203, .101, .196, 
+                    .214, .212, .115, .206), ncol = 4, byrow = TRUE)
+colnames(results) <- c("Full In Sample MSE", "30% Out of Sample MSE", "QB CPOE YoY R^2", "Test 2019 MSE")
+rownames(results) <- c("XGBoost", "GAM", "Air Yards Only - GAM")
+kable(results, "pandoc")
+```
 
 
 
