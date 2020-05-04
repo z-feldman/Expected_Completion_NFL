@@ -100,10 +100,87 @@ results <- matrix(c(.201, .202, .119, .194,
                     .214, .212, .115, .206), ncol = 4, byrow = TRUE)
 colnames(results) <- c("Full In Sample MSE", "30% Out of Sample MSE", "QB CPOE YoY R^2", "Test 2019 MSE")
 rownames(results) <- c("XGBoost", "GAM", "Air Yards Only - GAM")
-kable(results, "pandoc")
+kable(results)
 ```
 
 
+Test Exp Comp (cp) and CPOE by receiver
+```{r}
+plays_receiver_test <- cpoe_passes %>% select(receiver_player_id, season, cp, cpoe, air_yards, receiver_position) %>% filter(receiver_position %in% c("TE", "WR"))
+
+receiver_cpoe_by_season <- plays_receiver_test %>% group_by(receiver_player_id, season) %>% 
+  summarise(targets = n(),
+            cpoe_mean = mean(cpoe),
+            exp_comp_mean = mean(cp),
+            
+            cayoe_mean = mean(cpoe * air_yards),
+            exp_ay_mean = mean(cp * air_yards))
+
+min_targets <- 43
+
+receiver_cpoe_by_season %>% 
+  filter(targets > min_targets) %>% 
+  group_by(receiver_player_id, season) %>% 
+  arrange(receiver_player_id, season) %>% 
+  map_at(vars(contains("mean")), .f = yoy_model)
 
 
+```
+
+
+```{r}
+plays_quarterback_test <- cpoe_passes %>% select(passer_player_id, season, cp, cpoe, air_yards)
+
+quarterback_cpoe_by_season <- plays_quarterback_test %>% group_by(passer_player_id, season) %>% 
+  summarise(attempts = n(),
+            cpoe_mean = mean(cpoe),
+            exp_comp_mean = mean(cp),
+            
+            cayoe_mean = mean(cpoe * air_yards),
+            exp_ay_mean = mean(cp * air_yards))
+
+min_attempts <- 128
+
+quarterback_cpoe_by_season %>% 
+  filter(attempts > min_attempts) %>% 
+  group_by(passer_player_id, season) %>% 
+  arrange(passer_player_id, season) %>% 
+  map_at(vars(contains("mean")), .f = yoy_model)
+```
+
+
+```{r}
+plays_defensive_test <- cpoe_passes %>% select(defteam, season, cp, cpoe, air_yards)
+
+defensive_cpoe_by_season <- plays_defensive_test %>% group_by(defteam, season) %>% 
+  summarise(cpoe_mean = mean(cpoe),
+            exp_comp_mean = mean(cp),
+            
+            cayoe_mean = mean(cpoe * air_yards),
+            exp_ay_mean = mean(cp * air_yards))
+
+
+defensive_cpoe_by_season %>% 
+  group_by(defteam, season) %>% 
+  arrange(defteam, season) %>% 
+  map_at(vars(contains("mean")), .f = yoy_model)
+```
+
+
+```{r}
+plays_coach_test <- cpoe_passes %>% mutate(posteam_coach = if_else(posteam_type == "away", away_coach, home_coach)) %>% select(posteam_coach, season, cp, cpoe, air_yards)
+
+coach_cpoe_by_season <- plays_coach_test %>% group_by(posteam_coach, season) %>% 
+  summarise(cpoe_mean = mean(cpoe),
+            exp_comp_mean = mean(cp),
+            
+            cayoe_mean = mean(cpoe * air_yards),
+            exp_ay_mean = mean(cp * air_yards))
+
+
+coach_cpoe_by_season %>% 
+  group_by(posteam_coach, season) %>% 
+  arrange(posteam_coach, season) %>% 
+  map_at(vars(contains("mean")), .f = yoy_model)
+```
 

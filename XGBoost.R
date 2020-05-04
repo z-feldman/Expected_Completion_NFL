@@ -65,7 +65,6 @@ params <-
 set.seed(69)
 xgb_cv <-xgboost::xgb.cv(params = params, data = x_train, nrounds = 150, nfold = 5, showsd = T, stratified = T, print_every_n = 1, early_stopping_rounds = 20)
 
-xgboost::xgb.ggplot.deepness(xgb_mod_full)
 # which round was lowest best iteration from
 nrounds <- xgb_cv$best_iteration
 
@@ -114,4 +113,12 @@ full_pred_data %<>% mutate(error = complete_pass - pred)
 full_pred_data %>% summarise(mean_abs_error = mean(abs(error)),
                    mean_sq_error = mean(error^2),
                    root_mean_sq_error = sqrt(mean(error^2)))
+
+cpoe_passes$cp <- xgb_mod_full_pred
+cpoe_passes %<>% mutate(cpoe = complete_pass - cp)
+
+
+
+
+
 
