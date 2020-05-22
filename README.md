@@ -2,6 +2,11 @@
 Modeling expected completion in the NFL using Generalized Additive Models and XGBoost with publicly available data.
 2nd Place in 2020 Ohio State Sports and Society Undergraduate Research Fair for Outstanding Sports Performance Analytics.
 
+Expected Completion originally popped up as a way to measure QB performance. I took an agnostic viewpoint with my research. I believed it best to get the best performing model for what the model is "supposed" to do by nature, then use it analyze. 
+
+So I modeled for best out of sample prediction of completion probability rather than for performance of a QB metric. If we get as close as possible to true completion probabilities, then we can get the best analysis of how different positions are affecting and affected by the output. However, if we are modeling it with the purpose of analyzing QBs, we may get a misrepresentation of what the model output is saying about WRs, for example.
+
+Because this was about the best prediction of completions, QB throwaways were removed (the intention of the pass was to not be completed, in theory it should come up as 0% if we use a throwaway binary indicator, but I decided to just remove them), QB hits were added (per PFF, QBs themselves are the main driver of their own pressure rate, but because this is to model agnostic of position I added QB hits because they are a key variable in expected completion). 
 
 
 TODO:
